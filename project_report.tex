@@ -1,0 +1,196 @@
+\documentclass[fontsize=11pt]{article}
+\usepackage{enumitem}
+\newlist{steps}{enumerate}{1}
+\setlist[steps, 1]{label = Step \arabic*:}
+\usepackage{amsmath}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=0.75in]{geometry}
+\usepackage{graphicx}
+\PassOptionsToPackage{hyphens}{url}\usepackage{hyperref}
+\usepackage{seqsplit}
+\usepackage{comment}
+\usepackage{pdfpages}
+
+
+\title{Dotify: Music Recommendations}
+\author{Conrad Stanek, Devan Srinivasan, Majda Lojpur, Salwa Abdalla}
+\date{Friday April 16th 2021}
+
+\usepackage{setspace}
+\doublespacing
+
+\begin{document}
+    \includepdf{Dotify Cover Page.pdf}
+
+    \maketitle
+    \section*{Introduction}
+    According to Streaming Machine, almost 3.1 million songs (Stein, 2020) are released every year on top of an already existing massive library of songs. With such a large selection of music it can be difficult for one to find new songs and artists that they enjoy in the midst of all the music that they find uninteresting. This got us thinking of graphs! The reason one likes a song is because it is similar to their current taste, but this is an abstract idea. Can this be quantified? Moreover, given that we are some of the people who don't appreciate having to make new playlists, \textbf{how can we create a customizable software that generates spotify playlists of new music that a user would like? Additionally, how can we adjust the software to nudge listeners into new genres to expand their music taste?} And so, this gave birth to our idea of using audio features of songs along with a uniquely connected graph to create a system that explores new music!
+
+    \section*{Dataset}
+
+    \begin{comment}
+        (if applicable) The name and description of all datasets you used for your project. If your program generates its own datasets, you should describe those as well. Include the format and source of each dataset.
+
+        Also state which parts of each dataset (e.g., which columns in a csv file) are actually used by your program. (When using large datasets, it is common to use only a subset of the data found within them.)
+
+        You do not need to submit sample dataset files to MarkUs.
+    \end{comment}
+
+    The dataset we used for the project is a Kaggle Spotify Dataset collection of roughly 175000 songs from 1921-2020. The whole dataset is composed of 3 separate csv files:
+    \begin{itemize}
+        \item \texttt{data.csv} Main data file, contains all songs and their properties, i.e danceability, accoustincess etc. All of the headers are used besides specfic infromation releated headers, like explicit, year, duration\_ms.
+        \item \texttt{data\_by\_genres.csv} Contains all artists and their properties i.e danceability, accoustincess etc. but it omits some that do not make sense like release date. Also includes the genres that the artist makes. All of the headers are used
+        \item \texttt{data\_w\_genres.csv} Contains all genres and their properties, i.e danceability accoustincess. Same properties as \texttt{data.csv} but it omits some that do not make sense like release date. Only the artists and genre headers are used.
+    \end{itemize}
+
+    \section*{Computational Overview}
+
+    \begin{comment}
+        A computational overview for your project.
+
+        This is similar to the computational plan you submitted in the proposal, except now it’s not a plan, but a description of the program you’re actually submitting.
+
+        \begin{itemize}
+            \item Describe the kinds of data your project uses to represent your chosen domain, and how trees and/or graphs play a central role in this data representation.
+            \item Describe the major the computations your program performs, such as: building trees/graphs from a dataset or computation, data transformation/filtering/aggregation, computational models, and/or algorithms.
+            \item Explain how your program reports the results of your computation in a visual and/or interactive way.
+            \item Explain how your program uses new libraries to accomplish its tasks. Refer to specific functions, data types, and/or capabilities of the library that make it relevant for accomplishing these tasks.
+        \end{itemize}
+
+        This overview should be more detailed and concrete than the plan you submitted, since you are submitting your actual code as well. Refer to concrete files, data types, and/or functions that you created in your descriptions of this part. However, you do not need to mention every single data type/function you wrote; use your judgment to only refer to the most important data types and functions that you created for each “computational phase” of your program.
+    \end{comment}
+
+    \subsection*{Data Types}
+    The types of data that was used to represent our chosen domain were the following. All of these are found in \texttt{song\_graph.py}\\
+    \noindent \texttt{Song} \\
+    This class represents a song. It contains all the relevant song attributes separated by auditory property (danceability, energy, ...) and then information (id, artists, ...). The \texttt{Song} class, when instantiated, represents a vertex in our \texttt{SongGraph}. Being that it is a vertex, it contains a neighbours dictionary that stores it's weighted edges. Each weight is a similarity score generating using the song's properties. Note that the way we calculated the similarity score means that the lower the score, the more similar the two vertices are. (It's more of a difference score)\\ \noindent
+
+    \noindent \texttt{SongGraph} \\
+    This class is our weighted nested graph class. It is the graph of songs that corresponds to a particular genre, in which all songs share. The reason nested graphs were used, as opposed to having all songs in one graph, was to a) improve computational efficiency b) allow for more specific computations (having the songs already separated by genre) \\ \noindent
+
+    \noindent\texttt{Genre} \\
+    This class represents a vertex in our weighted \texttt{GenreGraph}. The class has relevant attributes such as the genre's average properties, as well as its name and corresponding \texttt{SongGraph}. Being that the graph is weighted, this node also has a neighbour dictionary that stores its similar genres. \\ \noindent
+
+    \noindent \texttt{GenreGraph} \\
+    This is the weighted graph that stores all \texttt{Genre} vertices, whom themselves contain the respective \texttt{SongGraph} graphs.
+
+    \subsection*{Major Computations}
+    The bulk of our computations can be separated into three sections, loading, algorithms, and visualization.
+    \vspace{4mm} Graphs are the backbone of our project, as they connect songs and genres together using quantitative measures. More specifically, songs are connected using a weighted edge, the weight being a similarity score calculated from the song's properties. Using this framework, we then developed unique algorithms and traversal patterns to take input and generate new songs we think the user may want to try.
+    \subsubsection*{Loading}
+    To load the genre graph all of the genres and their average properties are loaded from \texttt{load\_genres}, all artists and the genres they make are loaded from \texttt{load\_artists\_to\_genres} and all songs and their properties from \texttt{load\_songs}. Then a dictionary of genres to songs is created and is done by looking at each song's artist and then the genres the the artist makes and then comparing the average properties to select the most likely genre (This is because spotify does not store genre information about individual songs). Then each genre has a song graph created for it consisting of the songs in the genre it corresponds to. Instead of finding a similarity score between each song (because this takes to long) each song is given a rating and then the ratings are sorted and songs that are close to each other are connected. All of the song graphs are held in genre objects which are stored in a genre graph and connected in the same way.
+    \subsubsection*{Algorithms (\texttt{computations.py})}
+
+    We have 6 algorithms, all of which are unique graph methods that recommend songs in innovative ways. Below is a brief description of the computationally complex algorithms.
+    \begin{itemize}
+        \item \texttt{bfs\_gen}
+        This function traverses a song graph in a level based manner. It was inspired by breadth first search, which uses queues to explore in a level based manner as well. This is a method intended to stay closer to the user's existing taste in music.
+        \item \texttt{artist\_gen}
+        This function is a function that uses recursion, to generate songs of the same artist (or a closely related one). It has a helper function that acts as the recursive step called \texttt{rec}.
+        \item \texttt{explore\_new\_genres}
+        Finds genres that are neighbours to inputted genres and calculates a biased similarity score between songs in the input list and songs in the neighbouring genres, that also takes into account preferences and then returns the 'best' 11 songs.
+        \item \texttt{find\_uniquely\_connected}
+        Finds songs by taking into account the degree of each song. Songs with a lower degree are preferred, since they are more uniquely' connected to other songs.
+    \end{itemize}
+
+    \subsubsection*{Filtering and Aggregation}
+    We filter song choice by allowing the user to set custom parameters in the settings window, as well as utilize a visited set in our algorithms to prevent infinite loops/recursion, and ensure only \textbf{new} songs are recommended.
+    \subsubsection*{Spotify Methods (\texttt{spotify\_methods})}
+    There are two major methods here. \\
+    \noindent \texttt{spot\_song\_to\_vert} \\
+    This method takes in Spotipy search results, and formats it into a vertex. While this wasn't computationally taxing this function is critical as it converts large JSON formatted search results into our specific \texttt{Song} data type. \\
+    \noindent \texttt{song\_to\_genre\_guess} \\
+    This method is critical to creating song vertices. Given a dummy vertex (one that hasn't been incorporated into the graph yet) this method guesses the best genre it should be assigned. When we receive songs from input, that don't exist in our graph already, this function determines which nested \texttt{SongGraph} it should be inserted into.
+
+    \subsubsection*{Visualization}
+    Our visualization comes in two parts, that being the GUI and the Graph Visualization.
+
+    \textbf{GUI (using Tkinter) (\texttt{main.py})}
+    The GUI has many methods that set widgets in place, as well as header methods that call major methods from other files. No method here is very computationally complex.
+
+
+    \textbf{Pygame Visualization (\texttt{pygame\_visualization})}
+    Displays any genre/song/(sub genre) graph. Also connects to plotly.
+
+    \subsection*{Interactive Visualization}
+    Our software opens a GUI that contains everything the user needs to use our software. \vspace{4mm} \newline
+    Also the program outputs the playlists and automatically adds it to a tethered spotify account.
+
+    \subsection*{Libraries}
+    \subsubsection*{Spotipy}
+    This is Spotify's Web API, a major component to our project. The main functions that use this library are \texttt{find\_track\_options}, \texttt{pull\_playlist}, and \texttt{generate\_playlist}. Using this library allowed us to read data from spotify's database, use playlists and tracks from the user tethered to the project (the dummy account), and lastly generate playlists to load onto the user's account. Using Spotify's Web API also allowed us to use their song search engine which was helpful for allowing the user to find songs to add to the input list.
+
+    \subsubsection*{Pygame}
+    We use pygame to give a preliminary visualization of the graph. Pygame was very helpful as its very versatile and unrestricted, and allowed users to select sub graphs and have them displayed which is complicated to do with plotly.
+
+    \subsubsection*{Plotly}
+    Plotly was used to visualize the graphs formally. By using their software we allowed the user to zoom in and out, as well as examine specific portions of the graph using plotly's framework, i.e individual vertices.
+
+    \subsubsection*{Networkx}
+    Networkx was used in a basic manner to organize our graph for visualization.
+
+    \subsubsection*{Tkinter}
+    Tkinter was used to build the GUI for our project. We used their widgets to make all interactive components of the GUI including buttons, list views, and drop-down menus.
+
+
+    \section*{Instructions}
+    Our program does not use any other programming language other than Python. The Python libraries required do not require any special installation instructions, and we have provided the marking team with a spotify account to use. All libraries that need to be externally installed are listed in requirements.txt. \\
+    \noindent To download the dataset use the link below.
+    \begin{verbatim}
+    https://drive.google.com/drive/folders/1CeYJfHIhGTxMxZhMLqHww_oOD0p79rOb?usp=sharing
+    \end{verbatim}
+    Note you may need to configure your browser settings to allow this download, as we had to on Chrome. Google drive will instruct you on how to do this.
+    Detailed (visual) instructions on how to use our software after running \texttt{main.py}:
+    Note that you can't use the GUI and visualization simultaneously as you are in the pygame loop while using the visualization, and hence can't exit until the window's closed. \\
+
+    \includegraphics{readme/one.png}\\
+    \includegraphics{readme/step 1.jpg} \\
+    \includegraphics{readme/step1-2.jpg}\\
+    %  \includegraphics{readme/three.png}\\
+    \includegraphics{readme/four.png}\\
+    \includegraphics{readme/five.jpg}\\
+
+    \includegraphics{readme/seven.png}\\
+    \includegraphics{readme/eight.png}\\
+    \newpage
+    \includegraphics{readme/ten.png}\\
+
+    \includegraphics{readme/nine.png}\\
+    \includegraphics{readme/twelve.png}\\
+
+    \newpage
+    \includegraphics{readme/thirteen.png}\\
+
+    \includegraphics{readme/fourteen.png}\\
+    \includegraphics{readme/fifteen.jpg}\\
+
+    \newpage
+
+    \section*{Updates}
+
+    There have been a few changes of our original idea from our proposal which come from both the feedback of the TAs, and our own fine tuning to while making our program:\\
+
+    \begin{itemize}
+        \item We finalized our data types (described earlier). This was not concrete in the proposal
+        \item As the TA recommended, we used Tkinter for our main GUI as opposed to Pygame.
+        \item We included visualization and used \texttt{networkx} and \texttt{plotly} as well as \texttt{pygame} for it.
+        \item Contrary to the TA's recommendation and even our own plans, we structured our graph very differently. We separated our graph into subgraphs by genre. We also implemented \textbf{relative similarity score} in correspondence to the threshold entered, to drastically improve the computational efficiency of our project. We also did not create separate edges for each parameter between songs as per our original idea, but rather used just one similarity score. The TA recommended we use cosine similarity, and we were going to, but found that the solution we have was most efficient for our purposes.
+        \item We did not use binary search trees as we thought we would need to. BST was originally intended to search our graph, but after separating our graph by genre and using dictionaries to store vertices (they have negligible search time complexity) the binary search tree was unnecessary.
+        \item We did not include a way to filter out specific songs from being recommended since we changed the way the we traversed the graphs
+    \end{itemize}
+
+    \section*{Discussion}
+    In making this project we hoped to create music recommending software that gave the user some control over the songs it recommended to them. We were able to do so, and from our testing, the playlists that were generated are fairly good, (I've unironically added some songs that were recommended to me to my liked songs on spotify). Obviously there are a lot of limitations however. One problem with the dataset is that spotify does not collect the genres of songs so we have to guess what they are which makes our graphs less accurate. Another problem is that the dataset itself is limited. It does contain 170000 songs but that still is a small number relative to the number of songs on spotify which leads to a lot of niche genres having very few songs to recommend from and as such the playlists that are generated wont vary too much. Another problem with the dataset is that it contains duplicate songs with different ID's. Meaning its the same song but the artist published it twice in different albums so our system can recommend the same song multiple times making the returned playlist mediocre. One last problem with the dataset is that it contains some songs that aren't playable in Canada, and the process to remove such songs would take a long time. The last problem really is that song recommendation is not an algorithmic process so in order to create an effective system it would require a lot of experimenting, and combinations of really complex algorithms and AI's to produce really good results. \vspace{4mm} \newline
+    The next steps to improve our project would first be to have some more extensive dataset with a more accurate way of connecting songs. Ideally we would be able to pre-load a large graph of songs that are connected by comparing every song instead of using the rating system described above to make the program run faster. More important then this however would be to improve the computations to make them more modular. Meaning that currently we have a few different algorithms that just take an input list and return a list of recommend songs. Instead however it would be more interesting to have a bunch of computations/functions that each do a specific portion of the song recommending process, (for instance determining what genre to recommend songs from) and have parameters that can be passed into each function that depending on what they are lead to different generation styles. We think that this would overall lead to better results (and it would be easier to add features if we want to change anything about the function) as more time could be spent on perfecting each part than simply making a whole algorithm that does the entire process from start to finish that has to implement each portion of the song recommending process within it. \vspace{4mm} \newline
+    Additionally, we would ideally have this type of software implemented along with Spotify itself. In doing so, each of the millions of users could contribute their songs and their playlists to our giant graph. This would improve the graph's knowledge as well as could be used in similarity score's. The last step we would like to note is the possible use of AIs. While we were happy with a lot of the playlists we generated (many of us actually use them now), we also realized that recommending songs isn't as mathematical as we hoped it was, but rather is very personal and specific. That being said, it can have many general patterns in terms of listening trends and songs that appear with eachother in many playlists, which is something only feasible on a global, multi user scale. This lead us to think that having an AI learn and study such patterns then make probabilistic recommendations, in concurrence with math and algorithms similar to ours, would really perfect the goal of computationally recommending songs. We learned a lot from this project and thoroughly enjoyed the whole process from working with API's for the first time to getting to expand our music taste.
+
+    \newpage
+
+    \section*{References}
+
+    \begin{figure}[htp]
+        \includegraphics[width=19cm]{references.png}
+
+    \end{figure}
+
+\end{document}
